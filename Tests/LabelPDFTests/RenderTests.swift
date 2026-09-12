@@ -190,3 +190,53 @@ final class RenderTests: XCTestCase {
 private func TextPDFDocumentForTests() -> TextPDFDocument {
     TextPDFDocument(width: 595, height: 842, margin: 0, fontSize: 9, leading: 11)
 }
+
+// MARK: - Barcodes
+
+extension RenderTests {
+
+    /// A product label carries a retail code for the till AND often a QR to the listing.
+    /// They are not alternatives and go in different places.
+    func testABarcodeAndAQRCanBothBeOnOneLabel() throws {
+        let content = LabelContent(lines: ["Sea Salt & Bergamot", "220g"],
+                                   qr: "https://example.com/l/1",
+                                   barcode: "5012345678900")
+        let pdf = try LabelRenderer.render([content], on: Sheets.l7165)
+        XCTAssertGreaterThan(try pdf.render().count, 2000)
+        XCTAssertTrue(pdf.drawnText.contains { $0.contains("Sea Salt") })
+        XCTAssertTrue(pdf.drawnText.contains("012345"), "the barcode's own digits are drawn")
+    }
+
+    func testBarcodeColumnsAreRecognisedByName() {
+        for name in ["barcode", "ean", "upc", "sku"] {
+            let content = LabelContent.from(row: ["product": "Candle", name: "5012345678900"],
+                                            order: ["product", name])
+            XCTAssertEqual(content.barcode, "5012345678900", "\(name) should become a barcode")
+            XCTAssertEqual(content.lines, ["Candle"], "\(name) must not print as a line of text")
+        }
+    }
+
+    /// A label too small for a readable barcode prints the text rather than a smudge.
+    func testATinyLabelSkipsTheBarcodeAndStillPrints() throws {
+        let content = LabelContent(lines: ["£24.00"], barcode: "5012345678900")
+        let pdf = try LabelRenderer.render([content], on: Sheets.l7651)   // 38 × 21 mm
+        XCTAssertFalse(pdf.drawnText.isEmpty, "the price still has to print")
+    }
+
+    /// A refused barcode must not leave a gap where one would have been.
+    func testABadBarcodeLeavesTheLabelOtherwiseIntact() throws {
+        let content = LabelContent(lines: ["Sea Salt & Bergamot"], barcode: "NOT-DIGITS")
+        let pdf = try LabelRenderer.render([content], on: Sheets.l7165)
+        XCTAssertTrue(pdf.drawnText.contains { $0.contains("Sea Salt") })
+    }
+
+    func testSymbologyCanBeChosen() throws {
+        let content = LabelContent(lines: ["Asset"], barcode: "ASSET-014", symbology: .code128)
+        let pdf = try LabelRenderer.render([content], on: Sheets.l7165)
+        XCTAssertTrue(pdf.drawnText.contains("ASSET-014"))
+    }
+
+    func testContentWithOnlyABarcodeIsNotEmpty() {
+        XCTAssertFalse(LabelContent(lines: [], barcode: "5012345678900").isEmpty)
+    }
+}

@@ -13,6 +13,7 @@
 //
 
 import Foundation
+import TextPDF
 
 /// One label's content.
 public struct LabelContent: Codable, Hashable, Sendable {
@@ -26,34 +27,50 @@ public struct LabelContent: Codable, Hashable, Sendable {
     /// A path to an image drawn at the leading edge. A logo, usually.
     public let image: String?
 
-    public init(lines: [String], qr: String? = nil, image: String? = nil) {
+    /// A linear barcode drawn across the foot of the label — a product code, an asset tag.
+    ///
+    /// Separate from ``qr`` because they are not alternatives: a product label often carries
+    /// a retail EAN-13 for the till AND a QR to the listing, and they go in different places.
+    public let barcode: String?
+
+    /// Which barcode. EAN-13 unless said otherwise, since that is what a product label means.
+    public let symbology: Barcode.Symbology
+
+    public init(lines: [String], qr: String? = nil, image: String? = nil,
+                barcode: String? = nil, symbology: Barcode.Symbology = .ean13) {
         self.lines = lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         self.qr = qr?.isEmpty == true ? nil : qr
         self.image = image?.isEmpty == true ? nil : image
+        self.barcode = barcode?.isEmpty == true ? nil : barcode
+        self.symbology = symbology
     }
 
     /// Whether this label would print nothing at all.
-    public var isEmpty: Bool { lines.isEmpty && qr == nil && image == nil }
+    public var isEmpty: Bool { lines.isEmpty && qr == nil && image == nil && barcode == nil }
 
     /// One label built from a row of data, where the column order is the line order.
     ///
     /// Columns named `qr` or `image` are pulled out and used as those, rather than printed as
     /// a line of text — otherwise a mailing list with a URL column would set the URL in
     /// nine-point type across the middle of every label.
-    public static func from(row: [String: String], order: [String]) -> LabelContent {
+    public static func from(row: [String: String], order: [String],
+                            symbology: Barcode.Symbology = .ean13) -> LabelContent {
         var lines: [String] = []
         var qr: String?
         var image: String?
+        var barcode: String?
         for key in order {
             guard let value = row[key]?.trimmingCharacters(in: .whitespaces), !value.isEmpty
             else { continue }
             switch key.lowercased() {
-            case "qr", "qrcode", "qr_code":  qr = value
-            case "image", "logo", "icon":    image = value
-            default:                         lines.append(value)
+            case "qr", "qrcode", "qr_code":          qr = value
+            case "image", "logo", "icon":            image = value
+            case "barcode", "ean", "upc", "sku":     barcode = value
+            default:                                 lines.append(value)
             }
         }
-        return LabelContent(lines: lines, qr: qr, image: image)
+        return LabelContent(lines: lines, qr: qr, image: image,
+                            barcode: barcode, symbology: symbology)
     }
 }
 

@@ -105,15 +105,33 @@ public enum LabelRenderer {
             }
         }
 
+        // A barcode takes the foot of the label, full width, and the text sits above it.
+        // Across rather than beside, because a linear code needs length to be read and a
+        // label is wider than it is tall.
+        var textBottom = slot.y + padding
+        if let code = content.barcode {
+            let captionRoom = Barcode.captionHeight(for: slot.width - padding * 2)
+            let barHeight = min((slot.height - padding * 2) * 0.4, 34)
+            if barHeight > 8, slot.width - padding * 2 > 40 {
+                let failure = pdf.barcode(code, symbology: content.symbology,
+                                          x: slot.x + padding, y: slot.y + padding + captionRoom,
+                                          width: slot.width - padding * 2, height: barHeight)
+                // A refused barcode leaves the text alone rather than leaving a gap where one
+                // would have been — the label still prints, just without it.
+                if failure == nil { textBottom += barHeight + captionRoom + padding / 2 }
+            }
+        }
+
         guard !content.lines.isEmpty, textWidth > 4 else { return }
 
+        let textHeight = max(8, slot.top - padding - textBottom)
         let size = style.fontSize ?? fittingSize(content.lines, width: textWidth,
-                                                 height: slot.height - padding * 2, on: pdf)
+                                                 height: textHeight, on: pdf)
         let leading = size * 1.22
         let blockHeight = leading * Double(content.lines.count)
         // Centred vertically: a label read at arm's length looks wrong hung from the top,
         // and the die cut is not always exactly where the artwork thinks it is.
-        var baseline = slot.y + (slot.height + blockHeight) / 2 - leading * 0.8
+        var baseline = textBottom + (textHeight + blockHeight) / 2 - leading * 0.8
 
         for (index, line) in content.lines.enumerated() {
             let bold = style.boldFirstLine && index == 0
