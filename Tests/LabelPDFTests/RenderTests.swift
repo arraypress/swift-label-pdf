@@ -122,6 +122,25 @@ final class RenderTests: XCTestCase {
         XCTAssertEqual(content.lines, ["1", "3"], "an empty column leaves no blank line")
     }
 
+    /// Centring is done by giving TextPDF a box to centre within. It ignores the alignment
+    /// when the box is zero wide — which is its default — so a centred label that merely
+    /// shifts x prints left-aligned from the middle and looks like the flag does nothing.
+    func testCentredTextIsActuallyCentred() throws {
+        let short = LabelContent(lines: ["Hi"])
+        let left = try LabelRenderer.render([short], on: Sheets.l7165,
+                                            style: LabelStyle(centred: false))
+        let centred = try LabelRenderer.render([short], on: Sheets.l7165,
+                                               style: LabelStyle(centred: true))
+
+        // A change detector, and worth saying so rather than dressing it up: it proves the
+        // flag reaches the drawing and alters it, not that the result is visually centred.
+        // What proved that was rendering a sheet of badges and looking at them — which is how
+        // the bug was found, since the broken version differed from nothing and looked fine
+        // in every unit test.
+        XCTAssertNotEqual(try left.render(), try centred.render(),
+                          "centring must change where the text lands")
+    }
+
     // MARK: Fitting
 
     /// Text too long for the label is shortened rather than run over the die cut.
@@ -141,10 +160,22 @@ final class RenderTests: XCTestCase {
         XCTAssertLessThanOrEqual(size, 12)
     }
 
+    /// Asserted through truncation, which is observable, rather than through byte counts,
+    /// which are not: a larger size fits fewer characters on the same label.
     func testAnExplicitSizeIsHonoured() throws {
-        let pdf = try LabelRenderer.render([address], on: Sheets.l7160,
-                                           style: LabelStyle(fontSize: 7))
-        XCTAssertGreaterThan(try pdf.render().count, 500)
+        let long = LabelContent(lines: ["Katherine Johnson NASA Langley Research"])
+        func drawn(_ size: Double) throws -> String {
+            try LabelRenderer.render([long], on: Sheets.l7160,
+                                     style: LabelStyle(fontSize: size)).drawnText.first ?? ""
+        }
+        let small = try drawn(6)
+        let medium = try drawn(14)
+        let large = try drawn(20)
+
+        XCTAssertGreaterThan(small.count, medium.count)
+        XCTAssertGreaterThan(medium.count, large.count)
+        XCTAssertEqual(small, long.lines[0], "six points fits the whole line")
+        XCTAssertTrue(large.hasSuffix("..."), "twenty points cannot, so it truncates")
     }
 
     /// Padding cannot eat the whole label, however large it is asked to be.

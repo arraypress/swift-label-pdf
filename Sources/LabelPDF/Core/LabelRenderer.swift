@@ -119,10 +119,13 @@ public enum LabelRenderer {
             let bold = style.boldFirstLine && index == 0
             let font: Font = bold ? .helveticaBold : .helvetica
             let shown = pdf.fit(line, into: textWidth, size: size, font: font)
-            _ = pdf.textAt(shown,
-                           x: style.centred ? textLeft + textWidth / 2 : textLeft,
-                           y: baseline, size: size, font: font,
-                           align: style.centred ? .center : .left)
+            // TextPDF centres WITHIN a box, and ignores the alignment entirely when
+            // boxWidth is zero — which is its default. Shifting x to the middle instead does
+            // nothing at all: the text is drawn left-aligned from the centre, which looks
+            // like centring having no effect, because it does not.
+            _ = pdf.textAt(shown, x: textLeft, y: baseline, size: size, font: font,
+                           align: style.centred ? .center : .left,
+                           boxWidth: style.centred ? textWidth : 0)
             baseline -= leading
         }
     }
