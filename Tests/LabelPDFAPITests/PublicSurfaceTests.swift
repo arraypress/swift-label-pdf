@@ -15,6 +15,7 @@
 import Foundation
 import XCTest
 import LabelPDF
+import TextPDF
 
 final class PublicSurfaceTests: XCTestCase {
 
