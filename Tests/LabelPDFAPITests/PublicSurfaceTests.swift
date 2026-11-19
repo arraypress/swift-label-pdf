@@ -32,6 +32,16 @@ final class PublicSurfaceTests: XCTestCase {
         XCTAssertGreaterThan(try pdf.render().count, 500)
     }
 
+    /// What will not print as given has to be askable from outside, or a caller cannot
+    /// tell anybody before the stock goes through the printer.
+    func testWarningsArePublic() throws {
+        let labels = [LabelContent(lines: (1 ... 12).map { "A line of a label with too much on it \($0)" })]
+        let pdf = try LabelRenderer.render(labels, on: Sheets.l7651)
+        XCTAssertFalse(LabelRenderer.warnings(labels, on: Sheets.l7651).isEmpty)
+        XCTAssertFalse(LabelRenderer.warnings(labels, on: Sheets.l7651, style: .default,
+                                              verifying: pdf).isEmpty)
+    }
+
     func testTheCatalogueIsPublic() {
         XCTAssertFalse(Sheets.all.isEmpty)
         XCTAssertEqual(Sheets.l7160.code, "L7160")

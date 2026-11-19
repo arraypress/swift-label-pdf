@@ -143,39 +143,18 @@ final class RenderTests: XCTestCase {
 
     // MARK: Fitting
 
-    /// Text too long for the label is shortened rather than run over the die cut.
-    func testLongTextIsShortenedToTheLabel() throws {
-        let long = LabelContent(lines: [String(repeating: "Wide ", count: 40)])
-        let pdf = try LabelRenderer.render([long], on: Sheets.l7651)   // 38 × 21 mm, the smallest
-        let drawn = try XCTUnwrap(pdf.drawnText.first)
-        XCTAssertLessThan(drawn.count, long.lines[0].count, "it must be truncated to fit")
-    }
-
-    /// Six points is the floor — smaller is not a label, it is a rumour.
-    func testTheFittedSizeHasAFloor() throws {
-        let pdf = TextPDFDocumentForTests()
-        let many = (0 ..< 30).map { "Line \($0)" }
-        let size = LabelRenderer.fittingSize(many, width: 40, height: 30, on: pdf)
-        XCTAssertGreaterThanOrEqual(size, 6)
-        XCTAssertLessThanOrEqual(size, 12)
-    }
-
-    /// Asserted through truncation, which is observable, rather than through byte counts,
-    /// which are not: a larger size fits fewer characters on the same label.
+    /// Asserted through wrapping, which is observable: at six points the line is set on one
+    /// line of its own, at twenty it cannot be and is wrapped — whole either way.
     func testAnExplicitSizeIsHonoured() throws {
         let long = LabelContent(lines: ["Katherine Johnson NASA Langley Research"])
-        func drawn(_ size: Double) throws -> String {
+        func drawn(_ size: Double) throws -> [String] {
             try LabelRenderer.render([long], on: Sheets.l7160,
-                                     style: LabelStyle(fontSize: size)).drawnText.first ?? ""
+                                     style: LabelStyle(fontSize: size)).drawnText
         }
-        let small = try drawn(6)
-        let medium = try drawn(14)
+        XCTAssertEqual(try drawn(6), long.lines, "six points fits the whole line on one line")
         let large = try drawn(20)
-
-        XCTAssertGreaterThan(small.count, medium.count)
-        XCTAssertGreaterThan(medium.count, large.count)
-        XCTAssertEqual(small, long.lines[0], "six points fits the whole line")
-        XCTAssertTrue(large.hasSuffix("..."), "twenty points cannot, so it truncates")
+        XCTAssertGreaterThan(large.count, 1, "twenty points cannot, so it wraps")
+        XCTAssertEqual(large.joined(separator: " "), long.lines[0], "and loses nothing")
     }
 
     /// Padding cannot eat the whole label, however large it is asked to be.
@@ -184,11 +163,6 @@ final class RenderTests: XCTestCase {
                                            style: LabelStyle(padding: 500))
         XCTAssertFalse(pdf.drawnText.isEmpty, "something should still print")
     }
-}
-
-/// A bare document for measuring, so the size fitter can be tested without a sheet.
-private func TextPDFDocumentForTests() -> TextPDFDocument {
-    TextPDFDocument(width: 595, height: 842, margin: 0, fontSize: 9, leading: 11)
 }
 
 // MARK: - Barcodes

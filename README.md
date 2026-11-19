@@ -62,6 +62,35 @@ Ten codes, A4 and US Letter: address (L7160, L7163, 4450, 5160), product (L7165,
 and price (L7651), round stickers (L7780), large (5163) and name badges (5395). Any geometry
 can be built by hand in millimetres or inches.
 
+## Nothing is cut
+
+Text is never shortened to fit a label. It is set as large as twelve points allows,
+shrinks half a point at a time to six with each line kept whole, and only then wraps
+onto more lines — a long URL breaks mid-word rather than running over the die cut.
+When a label cannot hold its text even wrapped at six points, the text is printed whole,
+hung from the top so the first line stays on the label, and you are told:
+
+```swift
+let pdf = try LabelRenderer.render(labels, on: sheet)
+for warning in LabelRenderer.warnings(labels, on: sheet, verifying: pdf) {
+    print(warning)   // Label 3 (Ada Lovelace): the text does not fit L7651 even wrapped at 6 pt; …
+}
+```
+
+`warnings(_:on:style:)` checks the layout: text that does not fit, and barcodes, QR codes
+and images that could not be drawn. `verifying:` also asks the finished document — every
+line of every label is looked for on the drawn page, in order, and characters the fonts
+cannot draw (printed as `?`) are reported. An explicit `fontSize` is honoured: it wraps
+if it must, and is reported if it still cannot fit.
+
+A Cyrillic or Greek address needs a font that has it — `render(…, font:)` takes a
+TrueType file, used only for the lines that need it:
+
+```swift
+let font = try EmbeddedFont.load(URL(fileURLWithPath: "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"))
+let pdf = try LabelRenderer.render(labels, on: sheet, font: font)
+```
+
 ## Part-used sheets
 
 The thing anybody with a drawer of half-used stock actually wants:
